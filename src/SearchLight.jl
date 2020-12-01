@@ -44,6 +44,9 @@ function connection end
 
 #########################
 
+# abstract function
+#########################
+function storableFields end
 
 # internals
 
@@ -624,8 +627,9 @@ function to_sqlinput(m::T, field::Symbol, value)::SQLInput where {T<:AbstractMod
           else
             value
           end
-
+      
   SQLInput(value)
+
 end
 
 

@@ -150,6 +150,7 @@ end
 SQLColumn(a::Array) = map(x -> SQLColumn(x), a)
 SQLColumn(c::SQLColumn) = c
 SQLColumn(r::SQLRaw) = SQLColumn(r.value, raw = true)
+SQLColumn(x::Dict) = SQLColumn(collect(values(x)))
 SQLColumn(a::Any) = SQLColumn(string(a))
 
 ==(a::SQLColumn, b::SQLColumn) = a.value == b.value
