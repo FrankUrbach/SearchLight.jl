@@ -168,8 +168,8 @@ function save!(m::T; conflict_strategy = :error, skip_validation = false, skip_c
   save!!(m, conflict_strategy = conflict_strategy, skip_validation = skip_validation, skip_callbacks = skip_callbacks)
 end
 
-function save!(m::Vector{T}; conflict_strategy = :error, skip_validation = false, skip_callbacks = Vector{Symbol}())::T where {T<:AbstractModel}
-  
+function save!(m::Vector{T}; conflict_strategy = :error, skip_validation = false, skip_callbacks = Vector{Symbol}())::Vector{T} where {T<:AbstractModel}
+  savedResults = Vector{T}
   for item in m
     save!(item, conflict_strategy = conflict_strategy, skip_validation = skip_validation, skip_callbacks = skip_callbacks)
   end
@@ -181,7 +181,7 @@ function save!!(m::T; conflict_strategy = :error, skip_validation = false, skip_
 
   id = if in(SearchLight.LAST_INSERT_ID_LABEL, names(df))
     df[1, SearchLight.LAST_INSERT_ID_LABEL]
-  elseif in(Symbol(pk(m)), names(df))
+  elseif in(pk(m), names(df))
     df[1, Symbol(pk(m))]
   end
 
@@ -467,7 +467,8 @@ function to_select_part(m::Type{T}, cols::Vector{SearchLight.SQLColumn}, joins::
 
     join(table_columns, ", ")
   else
-    tbl_cols = join(SearchLight.to_fully_qualified_sql_column_names(m, SearchLight.persistable_fields(m), escape_columns = true), ", ")
+    columnsFromStorable = collect(values(storableFields(m)))
+    tbl_cols = join(SearchLight.to_fully_qualified_sql_column_names(m, columnsFromStorable , escape_columns = true), ", ")
     table_columns = isempty(tbl_cols) ? String[] : vcat(tbl_cols, map(x -> prepare_column_name(x, m), columns_from_joins(joins)))
 
     join(table_columns, ", ")
@@ -593,6 +594,7 @@ function dataframes_by_table(tables_names::Vector{String}, tables_columns::Dict{
 
   sub_dfs
 end
+
 function dataframes_by_table(m::Type{T}, df::DataFrames.DataFrame)::Dict{String,DataFrames.DataFrame} where {T<:AbstractModel}
   tables_names = String[table(m)]
 
