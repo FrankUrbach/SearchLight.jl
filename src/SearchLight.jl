@@ -162,7 +162,7 @@ function save(m::T; conflict_strategy = :error, skip_validation = false, skip_ca
     true
   catch ex
     @error ex
-
+    
     false
   end
 end
@@ -177,7 +177,7 @@ function save!(m::Vector{T}; conflict_strategy = :error, skip_validation = false
   for item in m
     save!(item, conflict_strategy = conflict_strategy, skip_validation = skip_validation, skip_callbacks = skip_callbacks)
   end
-  
+  m
 end
 
 function save!!(m::T; conflict_strategy = :error, skip_validation = false, skip_callbacks = Vector{Symbol}())::T where {T<:AbstractModel}
