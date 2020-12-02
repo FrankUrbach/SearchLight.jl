@@ -44,7 +44,11 @@ function connection end
 
 #########################
 
+#
+### constants
+#
 
+const not_persistable_fields = ["before_save" , "after_save" , "on_save" , "on_find" , "after_find"]
 # internals
 
 mutable struct UnsupportedException <: Exception
@@ -161,7 +165,7 @@ function save!!(m::T; conflict_strategy = :error, skip_validation = false, skip_
 
   id = if in(SearchLight.LAST_INSERT_ID_LABEL, names(df))
     df[1, SearchLight.LAST_INSERT_ID_LABEL]
-  elseif in(Symbol(pk(m)), names(df))
+  elseif in(pk(m), names(df))
     df[1, Symbol(pk(m))]
   end
 
@@ -671,7 +675,8 @@ function column_field_name end
 
 function persistable_fields(m::Type{T}; fully_qualified::Bool = false)::Vector{String} where {T<:AbstractModel}
   object_fields = [map(x -> string(x), fieldnames(m))...]
-  fully_qualified ? to_fully_qualified_sql_column_names(m, object_fields) : object_fields
+  storeable_fields = setdiff(object_fields, not_persistable_fields)
+  fully_qualified ? to_fully_qualified_sql_column_names(m, storeable_fields) : storeable_fields
 end
 
 
