@@ -47,6 +47,10 @@ function connection end
 # abstract function
 #########################
 function storableFields end
+#
+### constants
+#
+const not_persistable_fields = ["before_save" , "after_save" , "on_save" , "on_find" , "after_find"]
 
 # internals
 
@@ -694,7 +698,8 @@ function column_field_name end
 
 function persistable_fields(m::Type{T}; fully_qualified::Bool = false)::Vector{String} where {T<:AbstractModel}
   object_fields = [map(x -> string(x), fieldnames(m))...]
-  fully_qualified ? to_fully_qualified_sql_column_names(m, object_fields) : object_fields
+  storeable_fields = setdiff(object_fields, not_persistable_fields)
+  fully_qualified ? to_fully_qualified_sql_column_names(m, storeable_fields) : storeable_fields
 end
 
 
