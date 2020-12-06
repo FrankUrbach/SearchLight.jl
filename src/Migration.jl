@@ -7,7 +7,6 @@ import Millboard, Dates, Logging, DataFrames
 using SearchLight
 import Base.showerror
 
-
 mutable struct DatabaseMigration # todo: rename the "migration_" prefix for the fields
   migration_hash::String
   migration_file_name::String
@@ -54,13 +53,14 @@ end
 
 function names_and_types(modelType::Type{T}) where {T<:SearchLight.AbstractModel}
 
-  fieldNames = fieldnames(modelType)
-  types = fieldtypes(modelType)
-  indexesWithoutUnderscors = findall( x -> SubString(string(x),1,1) != "_" , fieldNames)
+  storableNames = collect(values(storableFields(modelType)))
+  fieldNames = collect(keys(storableFields(modelType)))
+  types = map(x -> fieldtype(modelType, Symbol(x)),fieldNames)
+  
   names_and_types = ""
-  for i in indexesWithoutUnderscors
+  for i in 1:length(storableNames)
     if types[i] != SearchLight.DbId
-      names_and_types = string(names_and_types , "column(:",fieldNames[i] , "  ,:",lowercase(string(types[i])),")", "\r\n")
+      names_and_types = string(names_and_types , "column(:",storableNames[i] , "  ,:",lowercase(string(types[i])),")", "\r\n")
     elseif types[i] == SearchLight.DbId
       names_and_types = string(names_and_types, "primary_key() \r\n")
     end

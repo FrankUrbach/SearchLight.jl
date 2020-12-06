@@ -32,6 +32,8 @@ export deleteall, delete
 export ispersisted
 export pk, table
 
+export storableFields
+
 #######################
 
 function connect end

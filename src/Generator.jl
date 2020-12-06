@@ -73,7 +73,7 @@ function new_table_migration(migration_name::Union{String,Symbol}; pluralize::Bo
 end
 
 function new_table_migration( modelType::Type{T}; pluralize::Bool = true):: Nothing where {T<:SearchLight.AbstractModel} 
-  resource_name = uppercasefirst(string(modelType))
+  resource_name = string(last(split(string(modelType),".")))
 
   SearchLight.Inflector.is_singular(resource_name) && pluralize &&
     (resource_name = SearchLight.Inflector.to_plural(resource_name))
