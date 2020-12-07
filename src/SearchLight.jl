@@ -817,12 +817,16 @@ function to_fully_qualified_sql_column_names(m::Type{T}, persistable_fields::Vec
   map(x -> to_fully_qualified_sql_column_name(m, x, escape_columns = escape_columns), persistable_fields)
 end
 
+function keyString_storableField(m::Type{T}, field)::String where {T<:AbstractModel}
+  keysTest = [k for (k,v) in storableFields(m) if v==field] 
+  isempty(keysTest) ? "" : keysTest[1]
+end
 
 function to_fully_qualified_sql_column_name(m::Type{T}, f::String; escape_columns::Bool = false, alias::String = "")::String where {T<:AbstractModel}
   if escape_columns
-    "$(to_fully_qualified(m, f) |> escape_column_name) AS $(isempty(alias) ? (to_sql_column_name(m, f) |> escape_column_name) : alias)"
+    "$(to_fully_qualified(m, f) |> escape_column_name) AS $(isempty(alias) ? (to_sql_column_name(m, keyString_storableField(m,f)) |> escape_column_name) : alias)"
   else
-    "$(to_fully_qualified(m, f)) AS $(isempty(alias) ? to_sql_column_name(m, f) : alias)"
+    "$(to_fully_qualified(m, f)) AS $(isempty(alias) ? to_sql_column_name(m, keyString_storableField(m,f)) : alias)"
   end
 end
 
