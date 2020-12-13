@@ -32,7 +32,7 @@ export deleteall, delete
 export ispersisted
 export pk, table
 
-export storableFields
+export storableFields, sub_model_key, fields_to_store_directly
 
 #######################
 
@@ -49,6 +49,10 @@ function connection end
 # abstract function
 #########################
 function storableFields end
+
+function fields_to_store_directly end
+
+function sub_model_key end
 #
 ### constants
 #
@@ -159,7 +163,7 @@ end
 
 function save(m::T; conflict_strategy = :error, skip_validation = false, skip_callbacks = Vector{Symbol}())::Bool where {T<:AbstractModel}
   try
-    _save!!(m, conflict_strategy = conflict_strategy, skip_validation = skip_validation, skip_callbacks = skip_callbacks)
+    save!!(m, conflict_strategy = conflict_strategy, skip_validation = skip_validation, skip_callbacks = skip_callbacks)
     
     true
   catch ex
@@ -182,8 +186,16 @@ function save!(m::Vector{T}; conflict_strategy = :error, skip_validation = false
   m
 end
 
+function save!(m::T; conflict_strategy = :error, skip_validation = false, skip_callbacks = Vector{Symbol}())::T where {T<:Dict{String,<:Union{<:AbstractModel,<:Array{<:AbstractModel}}}}
+  for (key,item) in m
+    save!(item, conflict_strategy = conflict_strategy, skip_validation = skip_validation, skip_callbacks = skip_callbacks)
+  end
+  m
+end
+
 function save!!(m::T; conflict_strategy = :error, skip_validation = false, skip_callbacks = Vector{Symbol}())::T where {T<:AbstractModel}
   df::DataFrames.DataFrame = _save!!(m, conflict_strategy = conflict_strategy, skip_validation = skip_validation, skip_callbacks = skip_callbacks)
+
 
   id = if in(SearchLight.LAST_INSERT_ID_LABEL, names(df))
     df[1, SearchLight.LAST_INSERT_ID_LABEL]
@@ -200,7 +212,27 @@ function save!!(m::T; conflict_strategy = :error, skip_validation = false, skip_
 
   n === nothing && throw(SearchLight.Exceptions.UnretrievedModelException(typeof(m), id))
 
+  ## search for fields with AbstractModels or Array{AbstractModel} and returns the 
+  ## dict with the field as stirng as key and the AbstractModels or Array{AbstractModel} as values
+  subModels = sub_abstract_models(m)
+
+  ## set the DBId from parent model to the model fields containing AbstractModels 
+  setId_subModel!(n, subModels)
+
+  ## when fields with AbstractModels are there, save it
+  items_saved = nothing
+  if !isempty(subModels)
+    items_saved = save!(subModels)
+  end
+  
+  if items_saved !== nothing
+    for (key,value) in items_saved    
+      isdefined(n, Symbol(key)) && setfield!(n,Symbol(key),value)
+    end
+  end
+
   db_fields = persistable_fields(typeof(m))
+
   @sync Distributed.@distributed for f in fieldnames(typeof(m))
     in(string(f), db_fields) && setfield!(m, f, getfield(n, f))
   end
@@ -290,11 +322,9 @@ function updatewith!(m::T, w::Dict)::T where {T<:AbstractModel}
   m
 end
 
-
 function updatewith!!(m::T, w::Union{T,Dict})::T where {T<:AbstractModel}
   SearchLight.save!!(updatewith!(m, w))
 end
-
 
 function createwith(m::Type{T}, w::Dict)::T where {T<:AbstractModel}
   updatewith!(m(), w)
@@ -473,7 +503,7 @@ function to_select_part(m::Type{T}, cols::Vector{SearchLight.SQLColumn}, joins::
 
     join(table_columns, ", ")
   else
-    columnsFromStorable = collect(values(storableFields(m)))
+    columnsFromStorable = collect(values(fields_to_store_directly(m)))
     tbl_cols = join(SearchLight.to_fully_qualified_sql_column_names(m, columnsFromStorable , escape_columns = true), ", ")
     table_columns = isempty(tbl_cols) ? String[] : vcat(tbl_cols, map(x -> prepare_column_name(x, m), columns_from_joins(joins)))
 
@@ -734,11 +764,69 @@ end
 
 const primary_key_name = pk
 
+function sub_model_key(parentModel::T)::String where {T<:AbstractModel}
+  sub_model_key(typeof(parentModel))
+end
+
+"""
+  sub_model_key(parentModel::Type{T})::String where {T<:AbstractModel}
+    Returns the standard behavior for storing the Id of the parent in the fields with AbstractModel
+    If needed the function can be writen for a given concrete type.
+    eg. for a Model Author -> id_author
+"""
+function sub_model_key(parentModel::Type{T})::String where {T<:AbstractModel}
+  plural_model = SearchLight.Inflector.to_plural(string(parentModel))
+  singular_model = SearchLight.Inflector.tosingular(plural_model)
+  "id_" * lowercase(singular_model)
+end
+
+"""
+    Sets the Id from the parent model to a field id_ + parentModel_name. This is the standard behavior.
+
+    If this is not what you want you have to define the method sub_model_key for your model
+"""
+function setId_subModel!(m::T, subModels::R) where {T<:AbstractModel} where {R<:Dict{String,<:Union{<:AbstractModel,<:Array{<:AbstractModel}}}}
+  
+  ## determine the key from the parent model
+  keyForSubModels = sub_model_key(m)
+  ## get the fields with values from the parent model
+  fields_values = to_dict(m)
+  ## straighten the abstract sub models in an one dimensional array 
+  resModels = []
+  for (key,value) in subModels
+    resModels = vcat(resModels,value)
+  end
+  ## put the key from parent model into the submodels
+  for model in resModels
+    isdefined(model, Symbol(keyForSubModels)) && setfield!(model,Symbol(keyForSubModels),fields_values[pk(m)])
+  end
+
+  nothing
+end
+
+"""
+function sub_abstract_models(m::T)::Dict{String,Union{<:AbstractModel,<:Array{<:AbstractModel}}} where {T<:AbstractModel}
+
+  Determine fields containing AbstractModels or Arrays{AbstractModel,1} and add them
+  together
+"""
+function sub_abstract_models(m::T)::Dict{String,Union{<:AbstractModel,<:Array{<:AbstractModel}}} where {T<:AbstractModel}
+
+  dict_persFields = to_dict_persistable_fields(m)
+
+  result = Dict{String,Union{<:AbstractModel,<:Array{<:AbstractModel}}}()
+  for (key,value) in dict_persFields 
+    if isa(value,Union{<:AbstractModel,<:Vector{<:AbstractModel}})
+          push!(result, key => value)
+    end
+  end
+  
+  result
+end
 
 function strip_table_name(m::Type{T}, f::Symbol)::Symbol where {T<:AbstractModel}
   replace(string(f), Regex("^$(table(m))_") => "", count = 1) |> Symbol
 end
-
 
 function is_fully_qualified(m::Type{T}, f::Symbol)::Bool where {T<:AbstractModel}
   startswith(string(f), table(m)) && hasfield(m, strip_table_name(m, f))
@@ -859,6 +947,27 @@ function to_dict(m::Any)::Dict{String,Any}
   Dict(string(f) => getfield(m, Symbol(f)) for f in fieldnames(typeof(m)))
 end
 
+function to_dict_persistable_fields(m::T)::Dict{String,Any} where {T<:AbstractModel}
+  fields_values = to_dict(m)
+  pers_fields = persistable_fields(typeof(m))
+  result = Dict(key => get(fields_values,key,nothing) for key in pers_fields)
+  return result
+end
+
+function to_string_dict(m::Type{T};all_Fields::Bool = false, all_output::Bool = false)::Dict{String,Type{<:Any}} where {T<:AbstractModel}
+  response = Dict{String,Type{<:Any}}() 
+
+  field_names = all_Fields ? fieldnames(m) : SearchLight.persistable_fields(m)
+  raw_fieldnames = string.(fieldnames(m))
+  field_types = fieldtypes(m)
+  indexes_fieldtypes = map(x->findfirst(a -> a==x,raw_fieldnames),field_names)
+  
+  for i in 1:length(field_names)
+     push!(response,field_names[i]=>field_types[indexes_fieldtypes[i]])
+  end
+
+   return response
+end
 
 function to_string_dict(m::T; all_fields::Bool = false, all_output::Bool = false)::Dict{String,String} where {T<:AbstractModel}
   fields = all_fields ? fieldnames(typeof(m)) : persistable_fields(typeof(m))

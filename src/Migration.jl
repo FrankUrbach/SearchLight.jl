@@ -53,15 +53,16 @@ end
 
 function names_and_types(modelType::Type{T}) where {T<:SearchLight.AbstractModel}
 
-  storableNames = collect(values(storableFields(modelType)))
-  fieldNames = collect(keys(storableFields(modelType)))
-  types = map(x -> fieldtype(modelType, Symbol(x)),fieldNames)
+  storableNames = fields_to_store_directly(modelType)
+  dictFieldTypes = SearchLight.to_string_dict(modelType)
   
+  primary_key_Model = SearchLight.pk(modelType)
   names_and_types = ""
-  for i in 1:length(storableNames)
-    if types[i] != SearchLight.DbId
-      names_and_types = string(names_and_types , "column(:",storableNames[i] , "  ,:",lowercase(string(types[i])),")", "\r\n")
-    elseif types[i] == SearchLight.DbId
+
+  for (field,column) in storableNames
+    if field != primary_key_Model
+      names_and_types = string(names_and_types , "column(:",column , "  ,:",lowercase(string(dictFieldTypes[field])),")", "\r\n")
+    elseif  field == primary_key_Model
       names_and_types = string(names_and_types, "primary_key() \r\n")
     end
   end
