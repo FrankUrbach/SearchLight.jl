@@ -56,7 +56,7 @@ function names_and_types(modelType::Type{T}) where {T<:SearchLight.AbstractModel
   storableNames = fields_to_store_directly(modelType)
   dictFieldTypes = SearchLight.to_string_dict(modelType)
   
-  primary_key_Model = SearchLight.pk(modelType)
+  primary_key_Model = pk(modelType)
   names_and_types = ""
 
   for (field,column) in storableNames

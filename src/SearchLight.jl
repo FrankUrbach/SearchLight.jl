@@ -216,8 +216,13 @@ function save!!(m::T; conflict_strategy = :error, skip_validation = false, skip_
   ## dict with the field as stirng as key and the AbstractModels or Array{AbstractModel} as values
   subModels = sub_abstract_models(m)
 
+  ## setting in the retrieved master model the submodels
+  for (field, value) in subModels
+    setfield!(n,Symbol(field),value)
+  end
+
   ## set the DBId from parent model to the model fields containing AbstractModels 
-  setId_subModel!(n, subModels)
+  SearchLight.setId_subModel!(n, subModels)
 
   ## when fields with AbstractModels are there, save it
   items_saved = nothing
@@ -467,6 +472,16 @@ function to_model(m::Type{T}, row::DataFrames.DataFrameRow)::T where {T<:Abstrac
   status = invoke_callback(obj, :after_find)
   status[1] && (obj = status[2])
 
+  ## detect sub abstract models
+  abstractModels = SearchLight.to_string_dict_abstractModels(typeof(obj))
+
+  ## find vor the abstract models the db-entries and write them to the obj
+  for (key,value) in abstractModels
+    searchType = eltype(value) <: AbstractModel ? eltype(value) : value
+    tmpValue = find(searchType; (Symbol(sub_model_key(obj))=>getfield(obj,Symbol(pk(obj))), )...) 
+    setfield!(obj,Symbol(key),tmpValue)
+  end
+  
   obj
 end
 
@@ -762,6 +777,10 @@ function pk(m::Type{T})::String where {T<:AbstractModel}
   "id"
 end
 
+function pk_value(m::T)::Union{Noting,String,Int} where {T<:AbstractModel}
+  getfield(m,Symbol(pk(m)))
+end
+
 const primary_key_name = pk
 
 function sub_model_key(parentModel::T)::String where {T<:AbstractModel}
@@ -777,6 +796,8 @@ end
 function sub_model_key(parentModel::Type{T})::String where {T<:AbstractModel}
   plural_model = SearchLight.Inflector.to_plural(string(parentModel))
   singular_model = SearchLight.Inflector.tosingular(plural_model)
+  ## strip modulnames
+  singular_model = strip_module_name(singular_model)
   "id_" * lowercase(singular_model)
 end
 
@@ -791,11 +812,8 @@ function setId_subModel!(m::T, subModels::R) where {T<:AbstractModel} where {R<:
   keyForSubModels = sub_model_key(m)
   ## get the fields with values from the parent model
   fields_values = to_dict(m)
-  ## straighten the abstract sub models in an one dimensional array 
-  resModels = []
-  for (key,value) in subModels
-    resModels = vcat(resModels,value)
-  end
+  ##sub models in an one dimensional array 
+  resModels = array_sub_abstract_models(m)
   ## put the key from parent model into the submodels
   for model in resModels
     isdefined(model, Symbol(keyForSubModels)) && setfield!(model,Symbol(keyForSubModels),fields_values[pk(m)])
@@ -821,6 +839,18 @@ function sub_abstract_models(m::T)::Dict{String,Union{<:AbstractModel,<:Array{<:
     end
   end
   
+  result
+end
+
+"""
+  returns an array of abstract models
+"""
+function array_sub_abstract_models(m::T)::Array{AbstractModel} where {T<:AbstractModel}  
+  result = Array{AbstractModel,1}()
+  sub_Models = sub_abstract_models(m)
+  for (key,value) in sub_Models
+      result = vcat(result,value)
+  end
   result
 end
 
@@ -952,6 +982,21 @@ function to_dict_persistable_fields(m::T)::Dict{String,Any} where {T<:AbstractMo
   pers_fields = persistable_fields(typeof(m))
   result = Dict(key => get(fields_values,key,nothing) for key in pers_fields)
   return result
+end
+
+"""
+  returns a dictionary with fields as keys and types as value
+"""
+function to_string_dict_abstractModels(m::Type{T})::Dict{String,Type{<:Any}} where {T<:AbstractModel}
+  all_types = SearchLight.to_string_dict(m)
+  result=Dict{String,Type{<:Any}}()
+
+  for (key, value) in all_types
+    if value<:Union{<:AbstractModel,<:Array{<:AbstractModel}}
+      push!(result,key=>value)
+    end
+  end
+  result
 end
 
 function to_string_dict(m::Type{T};all_Fields::Bool = false, all_output::Bool = false)::Dict{String,Type{<:Any}} where {T<:AbstractModel}
