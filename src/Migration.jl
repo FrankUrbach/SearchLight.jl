@@ -53,7 +53,7 @@ end
 
 function names_and_types(modelType::Type{T}) where {T<:SearchLight.AbstractModel}
 
-  storableNames = fields_to_store_directly(modelType)
+  storableNames = SearchLight.fields_to_store_directly(modelType)
   dictFieldTypes = SearchLight.to_string_dict(modelType)
   
   primary_key_Model = pk(modelType)
@@ -61,7 +61,9 @@ function names_and_types(modelType::Type{T}) where {T<:SearchLight.AbstractModel
 
   for (field,column) in storableNames
     if field != primary_key_Model
-      names_and_types = string(names_and_types , "column(:",column , "  ,:",lowercase(string(dictFieldTypes[field])),")", "\r\n")
+      ## because of Modul.Type splitting is nesessary 
+      tmpField = string(Base.last(split(string(dictFieldTypes[field]),".")))
+      names_and_types = string(names_and_types , "column(:",column , "  ,:",lowercase(tmpField),")", "\r\n")
     elseif  field == primary_key_Model
       names_and_types = string(names_and_types, "primary_key() \r\n")
     end
