@@ -1002,7 +1002,7 @@ end
 function to_string_dict(m::Type{T};all_Fields::Bool = false, all_output::Bool = false)::Dict{String,Type{<:Any}} where {T<:AbstractModel}
   response = Dict{String,Type{<:Any}}() 
 
-  field_names = all_Fields ? fieldnames(m) : SearchLight.persistable_fields(m)
+  field_names = all_Fields ? fieldnames(m) : persistable_fields(m)
   raw_fieldnames = string.(fieldnames(m))
   field_types = fieldtypes(m)
   indexes_fieldtypes = map(x->findfirst(a -> a==x,raw_fieldnames),field_names)
