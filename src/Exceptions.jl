@@ -4,6 +4,7 @@ using SearchLight
 
 export NotPersistedException, MissingDatabaseConfigurationException, DatabaseAdapterException
 export UnretrievedModelException, InvalidModelException
+export InvalidConnectionItem
 
 abstract type SearchLightException <: Exception end
 
@@ -48,5 +49,11 @@ struct InvalidModelException <: Exception
   msg
 end
 InvalidModelException(model, errors) = InvalidModelException("The $(typeof(model)) model has validation errors:\n$errors")
+
+struct InvalidConnectionItem <: SearchLightException
+  msg::String
+end
+InvalidConnectionItem() = InvalidConnectionItem("One needed connection item isn't there or invalid")
+InvalidConnectionItem(msg::String) = InvalidConnectionItem(msg)
 
 end
