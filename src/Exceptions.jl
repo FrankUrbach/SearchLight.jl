@@ -50,10 +50,9 @@ struct InvalidModelException <: Exception
 end
 InvalidModelException(model, errors) = InvalidModelException("The $(typeof(model)) model has validation errors:\n$errors")
 
-struct InvalidConnectionItem <: SearchLightException
+struct InvalidConnectionItem <: Exception
   msg::String
 end
 InvalidConnectionItem() = InvalidConnectionItem("One needed connection item isn't there or invalid")
-InvalidConnectionItem(msg::String) = InvalidConnectionItem(msg)
 
 end
