@@ -489,6 +489,8 @@ function create_migrations_table end
 
 function drop_migrations_table end
 
+function create_id_nextval_trigger end
+
 end
 
 const Migrations = Migration

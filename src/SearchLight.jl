@@ -777,7 +777,7 @@ function pk(m::Type{T})::String where {T<:AbstractModel}
   "id"
 end
 
-function pk_value(m::T)::Union{Noting,String,Int} where {T<:AbstractModel}
+function pk_value(m::T)::Union{Nothing,String,Int} where {T<:AbstractModel}
   getfield(m,Symbol(pk(m)))
 end
 
