@@ -8,6 +8,8 @@ import SearchLight
 
 const vowels = ["a", "e", "i", "o", "u"]
 
+export to_plural
+
 
 """
     tosingular(word::String; is_irregular::Bool = false) :: Union{Nothing,String}
