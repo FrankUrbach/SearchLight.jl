@@ -310,7 +310,9 @@ Persists the `direction` of the `migration` into the database.
 function store_migration_status(migration::DatabaseMigration, direction::Symbol; force = false) :: Nothing
   try
     if direction == :up
-      SearchLight.query("INSERT INTO $(SearchLight.config.db_migrations_table_name) VALUES ('$(migration.migration_hash)')", internal = true)
+      queryString = "INSERT INTO $(SearchLight.config.db_migrations_table_name) VALUES ('$(migration.migration_hash)')"
+      println(queryString)
+      SearchLight.query(queryString, internal = true)
     else
       SearchLight.query("DELETE FROM $(SearchLight.config.db_migrations_table_name) WHERE version = ('$(migration.migration_hash)')", internal = true)
     end
@@ -330,10 +332,11 @@ end
 List of all migrations that are `up`.
 """
 function upped_migrations() :: Vector{String}
-  result = SearchLight.query("SELECT version FROM $(SearchLight.config.db_migrations_table_name) ORDER BY version DESC"; internal = true)
+  result = SearchLight.query("SELECT version FROM $(SearchLight.config.db_migrations_table_name) ORDER BY VERSION DESC"; internal = true)
 
   if DataFrames.nrow(result) > 0
-    String[string(x) for x = result[!, :version]]
+    #Choosing direct index because some db systems every time give back the uppercase of the column name
+    String[string(x) for x = result[!, 1]]
   else
     String[]
   end
