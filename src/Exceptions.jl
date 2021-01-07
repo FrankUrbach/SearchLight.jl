@@ -55,4 +55,10 @@ struct InvalidConnectionItem <: Exception
 end
 InvalidConnectionItem() = InvalidConnectionItem("One needed connection item isn't there or invalid")
 
+struct NotImplementedInAdapter <: Exception
+  func::String
+  msg::String
+end
+NotImplementedInAdapter() = NotImplementedInAdapter("Not defined function", "is not implemented")
+
 end
