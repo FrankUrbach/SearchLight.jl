@@ -34,6 +34,9 @@ export pk, table
 
 export storableFields, sub_model_key, fields_to_store_directly
 
+#util functions
+export intervall_values
+
 #######################
 
 function connect end
@@ -381,6 +384,8 @@ end
 function to_models(m::Type{T}, df::DataFrames.DataFrame)::Vector{T} where {T<:AbstractModel}
   models = OrderedCollections.OrderedDict{DbId,T}()
   dfs = dataframes_by_table(m, df)
+  abstractModels = SearchLight.to_string_dict_abstractModels(m)
+
 
   row_count::Int = 1
   for row in eachrow(df)
@@ -475,6 +480,8 @@ function to_model(m::Type{T}, row::DataFrames.DataFrameRow)::T where {T<:Abstrac
   ## detect sub abstract models
   abstractModels = SearchLight.to_string_dict_abstractModels(typeof(obj))
 
+  #TODO place the search for the subItems at the beginning of the function and search
+  #TODO as one single statement
   ## find vor the abstract models the db-entries and write them to the obj
   for (key,value) in abstractModels
     searchType = eltype(value) <: AbstractModel ? eltype(value) : value
@@ -1113,6 +1120,32 @@ Returns `value` if it is not `nothing` - otherwise `default`.
 """
 function expand_nullable(value::Union{Nothing,T}, default::T)::T where T
   value === nothing ? default : value
+end
+
+"""
+function intervall_values(arr,start,stop,interval)
+  returns arrays with a number of elements corresponding to the given interval. Be carfull 
+  with matrices and arrays with higher orders.
+"""
+function intervall_values(arr::AbstractArray{<:Any,1}; start::Int64 = 1, stop::Int64 = length(arr), interval::Int64 = 10)
+  
+  array_length= stop <= length(arr) ? stop : length(arr)
+  interval_length = interval > array_length ? array_length : interval
+  startPt = start > array_length ? array_length : start
+  stopPt = interval_length >= array_length ? array_length : interval_length
+
+  intervall = UnitRange(startPt,stopPt)
+  resArray = []
+
+  while 0 < startPt <= array_length
+    tmpArray = arr[intervall]
+    push!(resArray, tmpArray)
+    startPt += interval_length
+    stopPt + interval_length > array_length ? stopPt = array_length :  stopPt += interval_length
+    intervall = UnitRange(startPt,stopPt)
+  end
+
+  resArray
 end
 
 
