@@ -1123,29 +1123,26 @@ function expand_nullable(value::Union{Nothing,T}, default::T)::T where T
 end
 
 """
-function intervall_values(arr,start,stop,interval)
+function intervall_values(array_structure,start,stop,interval)
+
   returns arrays with a number of elements corresponding to the given interval. Be carfull 
   with matrices and arrays with higher orders.
 """
-function intervall_values(arr::AbstractArray{<:Any,1}; start::Int64 = 1, stop::Int64 = length(arr), interval::Int64 = 10)
-  
-  array_length= stop <= length(arr) ? stop : length(arr)
-  interval_length = interval > array_length ? array_length : interval
-  startPt = start > array_length ? array_length : start
-  stopPt = interval_length >= array_length ? array_length : interval_length
+function intervall_values(array_structure::T; start=1, stop=size(array_structure)[1],interval=10) where {T<:Union{<:AbstractArray{<:Any,1},<:AbstractArray{<:Any,2},DataFrame}}
+  rows = collect(eachrow(array_structure))
+  length_array = size(rows)[1]
 
-  intervall = UnitRange(startPt,stopPt)
-  resArray = []
+  work_begin = size(rows)[1] < start ? size(rows)[1] : start
+  work_stop = size(rows)[1] < stop ? size(rows)[1] : stop
+  work_interval = size(rows)[1] < interval ? size(rows)[1] : interval
 
-  while 0 < startPt <= array_length
-    tmpArray = arr[intervall]
-    push!(resArray, tmpArray)
-    startPt += interval_length
-    stopPt + interval_length > array_length ? stopPt = array_length :  stopPt += interval_length
-    intervall = UnitRange(startPt,stopPt)
+  result_array = []
+  for i in start:cld(work_stop - work_begin, work_interval)
+    push!(result_array,rows[work_begin:work_stop])
+    work_begin += interval
+    work_stop = work_stop + interval > length_array ? length_array : work_stop + interval
   end
-
-  resArray
+  result_array
 end
 
 
