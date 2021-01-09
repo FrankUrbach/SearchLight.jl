@@ -1123,26 +1123,37 @@ function expand_nullable(value::Union{Nothing,T}, default::T)::T where T
 end
 
 """
-function intervall_values(array_structure,start,stop,interval)
+function interval_values(array_structure,start,stop,interval)
 
   returns arrays with a number of elements corresponding to the given interval. Be carfull 
   with matrices and arrays with higher orders.
 """
-function intervall_values(array_structure::T; start=1, stop=size(array_structure)[1],interval=10) where {T<:Union{<:AbstractArray{<:Any,1},<:AbstractArray{<:Any,2},DataFrame}}
-  rows = collect(eachrow(array_structure))
-  length_array = size(rows)[1]
+## TODO test the cornercases 1 element 1 row DataFrame 0 rows etc.
+function interval_values(array_structure::DataFrames.DataFrame; start=1, stop=DataFrames.nrow(array_structure),interval=100)
+  length_array = DataFrames.nrow(array_structure)
 
-  work_begin = size(rows)[1] < start ? size(rows)[1] : start
-  work_stop = size(rows)[1] < stop ? size(rows)[1] : stop
-  work_interval = size(rows)[1] < interval ? size(rows)[1] : interval
+  work_interval = length_array < interval ? length_array : interval
+  work_begin = length_array < start ? length_array : start
+  work_stop = work_interval < stop ? work_interval : stop
 
   result_array = []
-  for i in start:cld(work_stop - work_begin, work_interval)
-    push!(result_array,rows[work_begin:work_stop])
-    work_begin += interval
-    work_stop = work_stop + interval > length_array ? length_array : work_stop + interval
+  for i in start:cld(length_array - work_begin, work_interval)
+    push!(result_array,(@view array_structure[work_begin : work_stop, :]))
+    work_begin += work_interval
+    work_stop = work_stop + work_interval > length_array ? length_array : work_stop + work_interval
   end
   result_array
+end
+
+function interval_values(array_structure::T; start=1, stop=size(array_structure)[1],interval=10) where {T<:Array{<:Any,1}}
+  df = DataFrame()
+  df[1] = array_structure
+  intervall_values(df; start, stop, interval)
+end
+
+function interval_values(array_structure::T; start=1, stop=size(array_structure)[1],interval=10) where {T<:Array{<:Any,2}}
+  df = DataFrame(array_structure)
+  intervall_values(df; start, stop, interval)
 end
 
 
